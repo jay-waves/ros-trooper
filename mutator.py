@@ -1,37 +1,37 @@
 from myrozz.msg_parser import MsgNode
-from random import randint, choices
+from random import randint, choices, randrange, shuffle
 from copy import deepcopy, copy
 
 '''bytes mutator'''
-def byte_replace(data: bytearray):
-  if not data:
-    return False
-  index = randint(0, len(data) - 1)
-  new_byte = randint(0, 255)
-  data[index] = new_byte
-  return True
-
-def bytes_swap(data: bytearray):
-  if len(data) < 2:
-    return False
-  idx1 = randint(0, len(data) - 1)
-  idx2 = randint(0, len(data) - 1)
-  if idx1 == idx2:
-      return False
-  data[idx1], data[idx2] = data[idx2], data[idx1]
-  return True
-
-def bit_flip(data: bytearray):
-  if not data:
-    return False
-  byte_index = randint(0, len(data) - 1)
-  bit_index = randint(0, 7)
-  bit_mask = 1 << bit_index
-  data[byte_index] ^= bit_mask
-  return data
-
-def bmutator(data:bytearray, wghts=None)->bool:
+def byte_mutator(data:bytearray, wghts=None)->bool:
   # bmutator -> byte mutator
+  def byte_replace(data: bytearray):
+    if not data:
+      return False
+    index = randint(0, len(data) - 1)
+    new_byte = randint(0, 255)
+    data[index] = new_byte
+    return True
+
+  def bytes_swap(data: bytearray):
+    if len(data) < 2:
+      return False
+    idx1 = randint(0, len(data) - 1)
+    idx2 = randint(0, len(data) - 1)
+    if idx1 == idx2:
+        return False
+    data[idx1], data[idx2] = data[idx2], data[idx1]
+    return True
+
+  def bit_flip(data: bytearray):
+    if not data:
+      return False
+    byte_index = randint(0, len(data) - 1)
+    bit_index = randint(0, 7)
+    bit_mask = 1 << bit_index
+    data[byte_index] ^= bit_mask
+    return data
+
   fns = [bit_flip, bytes_swap, byte_replace, lambda _: True] 
   if wghts is None:
       wghts = [1] * len(fns) 
@@ -46,7 +46,7 @@ def bmutator(data:bytearray, wghts=None)->bool:
 
 ####################################
 '''
-data mutator: 
+[type] mutator: 
   transform different type to bytes, decide mutation weights
 '''
 
@@ -67,20 +67,73 @@ TYPE_FMT = {
 
 import struct
 
-def bool_dmutator(data: bool):
-  # dmutator -> data mutator
+def bmutator(data: bool)->bool:
+  # bmutator -> bool mutator
   return choices([data, not data], [9, 1], k=1)[0]
 
-def list_dmutator(data: list, fn, size=None):
-  pass
+def lmutator(datas: list, fmutator, fixed_size=False):
+  # lmutator -> list mutator
+  def extend_elem():
+    # donot care elem repeated, will value-mutate soon
+    # cover add_elem()
+    num_to_add = randint(1, len(datas))
+    # max_num = max(1, len(datas)//3), not change lots at a time
+    elem = datas[randrange(0, len(datas))]
+    insrt_idx = randrange(0, len(datas))
+    for _ in range(num_to_add):
+      datas.insert(insrt_idx, elem)
+  
+  def reverse_elem():
+    if len(datas) <2:
+      return
+    idx1 = randrange(0, len(datas)-1) 
+    idx2 = randrange(idx1+1, len(datas))
+    #! donot use datas[:].reverse()
+    datas[idx1:idx2+1]=datas[idx1:idx2+1][::-1]
+  
+  def shuffle_elem():
+    if len(datas)<2:
+      return
+    idx1 = randrange(0, len(datas)-1) # randrangd: [), randint: []
+    idx2 = randrange(idx1+1, len(datas))
+    sublist = datas[idx1:idx2+1] # slice: [)
+    shuffle(sublist)
+    datas[idx1:idx2+1] = sublist
 
-def dmutator(data, type):
+  def remove_elem():
+    num_to_remove = randint(1, len(datas))
+    idx = randrange(0, len(datas))
+    del_end = min(idx+num_to_remove, len(datas))
+    del datas[idx:del_end]
+
+  def swap_elem():
+    idx1 = randrange(0, len(datas))
+    idx2 = randrange(0, len(datas))
+    if idx1 == idx2:
+      datas[idx1], datas[idx2] = datas[idx2], datas[idx1]
+
+  if not len(datas): # empty list
+    return datas
+  # mutate list structure
+  if not fixed_size:
+    fns = [extend_elem, reverse_elem, 
+           shuffle_elem, remove_elem, 
+           swap_elem, lambda:None]
+    fn = choices(fns, [1, 1, 1, 1, 1, 9], k=1)[0]
+    fn()
+  for i, data in enumerate(datas):
+    # mutate each field
+    datas[i] = fmutator(data)
+  return datas # useless ret for consistence
+
+def fmutator(data, type):
+  # fmutator -> field mutator
   #! donot put into str, list or bool, just donot care
   fmt = TYPE_FMT.get(type, None)
   if fmt is None or type in ['string', 'bool']:
     raise ValueError("invalid datatype")
   packedata: bytearray = struct.pack(fmt, data)
-  if bmutator(packedata, [1, 1, 1, 9]):
+  if byte_mutator(packedata, [1, 1, 1, 9]):
     return struct.unpack(fmt, packedata)[0]
 
 ##############################
@@ -94,8 +147,8 @@ def time_mutator(msg: dict):
   # avoid using deepcopy() causing wastes.
   # only visit direct sons, only list need deepcopy
   new_msg = copy(msg)
-  new_msg['sec'] = dmutator(msg['sec'], 'int32')
-  new_msg['nanosec'] = dmutator(msg['nanosec'], 'uint32') 
+  new_msg['sec'] = fmutator(msg['sec'], 'int32')
+  new_msg['nanosec'] = fmutator(msg['nanosec'], 'uint32') 
   return new_msg
 
 '''
@@ -124,9 +177,9 @@ def sattus_mutator(msg: dict):
   new_msg['header'] = header_mutator(msg['header'])
   # skip id field
   # skip instance_id field
-  new_msg['active'] = bool_dmutator(msg['active'])
-  new_msg['heartbeat_timeout'] = dmutator(msg['heartbeat_timeout'], 'float32')
-  new_msg['heartbeat_period'] = dmutator(msg['heartbeat_period'], 'float32')
+  new_msg['active'] = bmutator(msg['active'])
+  new_msg['heartbeat_timeout'] = fmutator(msg['heartbeat_timeout'], 'float32')
+  new_msg['heartbeat_period'] = fmutator(msg['heartbeat_period'], 'float32')
   return new_msg
 
 '''
@@ -137,9 +190,9 @@ Vector3
 '''
 def vector3_mutator(msg: dict):
   new_msg = copy(msg)
-  new_msg['x'] = dmutator(msg['x'], 'float64')
-  new_msg['y'] = dmutator(msg['y'], 'float64')
-  new_msg['z'] = dmutator(msg['z'], 'float64')
+  new_msg['x'] = fmutator(msg['x'], 'float64')
+  new_msg['y'] = fmutator(msg['y'], 'float64')
+  new_msg['z'] = fmutator(msg['z'], 'float64')
   return new_msg
 
 '''
@@ -154,14 +207,16 @@ def twist_mutator(msg: dict):
   return new_msg
 
 '''
-geometry_msgs/TwistWithCovariance twist
+geometry_msgs/TwistWithCovariance
 	Twist twist
 	float64[36] covariance
 '''
 def twistwithcovariance_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['twist'] = twist_mutator(msg['twist'])
-  new_msg['covariance'] = list_dmutator(msg['covariance'], 36,...)
+  new_msg['covariance'] = lmutator(msg['covariance'], 
+                                   lambda x:fmutator(x, 'float64'), 
+                                   fixed_size=True)
   return new_msg
 
 '''
@@ -172,9 +227,9 @@ Point32
 '''
 def point32_mutator(msg: dict):
   new_msg = copy(msg)
-  new_msg['x'] = dmutator(msg['x'], 'float32')
-  new_msg['y'] = dmutator(msg['y'], 'float32')
-  new_msg['z'] = dmutator(msg['z'], 'float32')
+  new_msg['x'] = fmutator(msg['x'], 'float32')
+  new_msg['y'] = fmutator(msg['y'], 'float32')
+  new_msg['z'] = fmutator(msg['z'], 'float32')
   return new_msg
 
 '''
@@ -185,9 +240,9 @@ Point64
 '''
 def point64_mutator(msg: dict):
   new_msg = copy(msg)
-  new_msg['x'] = dmutator(msg['x'], 'float64')
-  new_msg['y'] = dmutator(msg['y'], 'float64')
-  new_msg['z'] = dmutator(msg['z'], 'float64')
+  new_msg['x'] = fmutator(msg['x'], 'float64')
+  new_msg['y'] = fmutator(msg['y'], 'float64')
+  new_msg['z'] = fmutator(msg['z'], 'float64')
   return new_msg
 
 '''
@@ -196,7 +251,7 @@ geometry_msgs/msg/Polygon
 '''
 def polygon_mutator(msg: dict):
   new_msg = copy(msg)
-  new_msg['points'] = list_dmutator(msg['points'])
+  new_msg['points'] = lmutator(msg['points'])
   return new_msg
 
 '''
@@ -209,10 +264,10 @@ Quaternion orientation
 def quaternion_mutator(msg: dict):
   #? 有默认值怎么解决?
   new_msg = copy(msg)
-  new_msg['x'] = dmutator(msg['x'], 'float64')
-  new_msg['y'] = dmutator(msg['y'], 'float64')
-  new_msg['z'] = dmutator(msg['z'], 'float64')
-  new_msg['w'] = dmutator(msg['w'], 'float64')
+  new_msg['x'] = fmutator(msg['x'], 'float64')
+  new_msg['y'] = fmutator(msg['y'], 'float64')
+  new_msg['z'] = fmutator(msg['z'], 'float64')
+  new_msg['w'] = fmutator(msg['w'], 'float64')
   return new_msg
 
 '''
@@ -245,7 +300,9 @@ geometry_msgs/PoseWithCovariance pose
 def posewithcovariance_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['pose'] = pose_mutator(msg['pose'])
-  new_msg['covariance'] = list_dmutator(msg['covariance'], 36, ...)
+  new_msg['covariance'] = lmutator(msg['covariance'], 
+                                   lambda x: fmutator(x, 'float64'),
+                                   fixed_size=True)
   return new_msg
 
 '''
@@ -259,9 +316,9 @@ MapMetaData info
 def mapmetadata_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['map_load_time'] = time_mutator(msg['map_load_time'])
-  new_msg['resolution'] = dmutator(msg['resolution'], 'float32')
-  new_msg['width'] = dmutator(msg['width'], 'uint32')
-  new_msg['height'] = dmutator(msg['height'], 'uint32')
+  new_msg['resolution'] = fmutator(msg['resolution'], 'float32')
+  new_msg['width'] = fmutator(msg['width'], 'uint32')
+  new_msg['height'] = fmutator(msg['height'], 'uint32')
   new_msg['origin'] = point32_mutator(msg['origin'])
   return new_msg
 
@@ -275,7 +332,7 @@ def occupancygrid_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['header'] = header_mutator(msg['header'])
   new_msg['info'] = mapmetadata_mutator(msg['info'])
-  new_msg['data'] = list_dmutator(msg['data'])
+  new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'int8'))
   return new_msg
 
 '''
@@ -293,9 +350,9 @@ def costmapmetadata_mutator(msg: dict):
   new_msg['map_load_time'] = time_mutator(msg['map_load_time'])
   new_msg['update_time'] = time_mutator(msg['update_time'])
   # skip layer field
-  new_msg['resolution'] = dmutator(msg['resolution'], 'float32')
-  new_msg['size_x'] = dmutator(msg['size_x'], 'uint32')
-  new_msg['size_y'] = dmutator(msg['size_y'], 'uint32')
+  new_msg['resolution'] = fmutator(msg['resolution'], 'float32')
+  new_msg['size_x'] = fmutator(msg['size_x'], 'uint32')
+  new_msg['size_y'] = fmutator(msg['size_y'], 'uint32')
   new_msg['origin'] = pose_mutator(msg['origin'])
   return new_msg
 
@@ -309,7 +366,7 @@ def costmap_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['header'] = header_mutator(msg['header'])
   new_msg['metadata'] = costmapmetadata_mutator(msg['metadata'])
-  new_msg['data'] = list_dmutator(msg['data'])
+  new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'uint8'))
   return new_msg
 
 '''
@@ -324,11 +381,11 @@ map_msgs/msg/OccupancyGridUpdate
 def occupancygridupdate_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['header'] = header_mutator(msg['header'])
-  new_msg['x'] = dmutator(msg['x'], 'int32')
-  new_msg['y'] = dmutator(msg['y'], 'int32')
-  new_msg['width'] = dmutator(msg['width'], 'uint32')
-  new_msg['height'] = dmutator(msg['height'], 'uint32')
-  new_msg['data'] = list_dmutator(msg['data'],...)
+  new_msg['x'] = fmutator(msg['x'], 'int32')
+  new_msg['y'] = fmutator(msg['y'], 'int32')
+  new_msg['width'] = fmutator(msg['width'], 'uint32')
+  new_msg['height'] = fmutator(msg['height'], 'uint32')
+  new_msg['data'] = lmutator(msg['data'],...)
   return new_msg
 
 '''
@@ -339,7 +396,7 @@ nav_msgs/msg/Path
 def path_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['header'] = header_mutator(msg['header'])
-  new_msg['poses'] = list_dmutator(msg['poses'])
+  new_msg['poses'] = lmutator(msg['poses'])
   return new_msg
 
 '''
@@ -358,15 +415,16 @@ sensor_msgs/msg/LaserScan
 def laserscan_mutator(msg: dict):
   new_msg = copy(msg)
   new_msg['header'] = header_mutator(msg['header'])
-  new_msg['angle_min'] = dmutator(msg['angle_min'], 'float32')
-  new_msg['angle_max'] = dmutator(msg['angle_max'], 'float32')
-  new_msg['angle_increment'] = dmutator(msg['angle_increment'], 'float32')
-  new_msg['time_increment'] = dmutator(msg['time_increment'], 'float32')
-  new_msg['scan_time'] = dmutator(msg['scan_time'], 'float32')
-  new_msg['range_min'] = dmutator(msg['range_min'], 'float32')
-  new_msg['range_max'] = dmutator(msg['range_max'], 'float32')
-  new_msg['ranges'] = list_dmutator(msg['ranges'], ...)
-  new_msg['intensities'] = list_dmutator(msg['intensities'], ...)
+  new_msg['angle_min'] = fmutator(msg['angle_min'], 'float32')
+  new_msg['angle_max'] = fmutator(msg['angle_max'], 'float32')
+  new_msg['angle_increment'] = fmutator(msg['angle_increment'], 'float32')
+  new_msg['time_increment'] = fmutator(msg['time_increment'], 'float32')
+  new_msg['scan_time'] = fmutator(msg['scan_time'], 'float32')
+  new_msg['range_min'] = fmutator(msg['range_min'], 'float32')
+  new_msg['range_max'] = fmutator(msg['range_max'], 'float32')
+  new_msg['ranges'] = lmutator(msg['ranges'], lambda x: fmutator(x, 'float32'))
+  new_msg['intensities'] = lmutator(msg['intensities'],
+                                    lambda x: fmutator(x, 'float32'),)
   return new_msg
 
 '''
