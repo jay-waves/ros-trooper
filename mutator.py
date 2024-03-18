@@ -89,7 +89,7 @@ def new_field_knobs(wghts):
   global FIELD_KNOBS
   copy = FIELD_KNOBS.copy()
   FIELD_KNOBS = wghts
-  yield
+  yield # just exit when ErrorRaising
   FIELD_KNOBS = copy
   log.debug(">>[FIELD_KNOBS]: recover FIELD_WGHTS")
   return
@@ -181,6 +181,16 @@ def fmutator(data, type):
 
 ##############################
 
+@contextmanager
+def mutator_context(name: str):
+  # For now, just print some field-free information, like mutation schedule
+  # info
+  try:
+    log.debug(f"[{name}]: entry")
+    yield
+  finally: # print log even ErrorRaising
+    log.debug(f"[{name}]: exit")
+
 '''
 builtin_interfaces/Time
   int32 sec
@@ -189,11 +199,10 @@ builtin_interfaces/Time
 def time_mutator(msg: dict):
   # avoid using deepcopy() causing wastes.
   # only visit direct sons, only list need deepcopy
-  log.debug("[time mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['sec'] = fmutator(msg['sec'], 'int32')
-  new_msg['nanosec'] = fmutator(msg['nanosec'], 'uint32') 
-  log.debug("[time mutator]: exit")
+  with mutator_context("time mutator"):
+    new_msg = copy(msg)
+    new_msg['sec'] = fmutator(msg['sec'], 'int32')
+    new_msg['nanosec'] = fmutator(msg['nanosec'], 'uint32') 
   return new_msg
 
 '''
@@ -202,12 +211,11 @@ std_msgs/Header
 	string frame_id
 '''
 def header_mutator(msg: dict):
-  log.debug("[header mutator]: entry")
-  new_msg = copy(msg)
-  #TODO too may deepcopy calling other mutators
-  new_msg['stamp'] = time_mutator(msg['stamp'])
-  # skip frame_id field
-  log.debug("[header mutator]: exit")
+  with mutator_context("header mutator"):
+    new_msg = copy(msg)
+    #TODO too may deepcopy calling other mutators
+    new_msg['stamp'] = time_mutator(msg['stamp'])
+    # skip frame_id field
   return new_msg
 
 '''
@@ -220,15 +228,14 @@ bond/msg/Status
   float32 heartbeat_period
 '''
 def status_mutator(msg: dict):
-  log.debug("[status mutator]: entry")
-  new_msg = copy(msg) 
-  new_msg['header'] = header_mutator(msg['header'])
-  # skip id field
-  # skip instance_id field
-  new_msg['active'] = bmutator(msg['active'])
-  new_msg['heartbeat_timeout'] = fmutator(msg['heartbeat_timeout'], 'float32')
-  new_msg['heartbeat_period'] = fmutator(msg['heartbeat_period'], 'float32')
-  log.debug("[status mutator]: exit")
+  with mutator_context("status mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    # skip id field
+    # skip instance_id field
+    new_msg['active'] = bmutator(msg['active'])
+    new_msg['heartbeat_timeout'] = fmutator(msg['heartbeat_timeout'], 'float32')
+    new_msg['heartbeat_period'] = fmutator(msg['heartbeat_period'], 'float32')
   return new_msg
 
 '''
@@ -238,12 +245,11 @@ Vector3
 	float64 z
 '''
 def vector3_mutator(msg: dict):
-  log.debug("[vector3 mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['x'] = fmutator(msg['x'], 'float64')
-  new_msg['y'] = fmutator(msg['y'], 'float64')
-  new_msg['z'] = fmutator(msg['z'], 'float64')
-  log.debug("[vector3 mutator]: exit")
+  with mutator_context("vector3 mutator"):
+    new_msg = copy(msg)
+    new_msg['x'] = fmutator(msg['x'], 'float64')
+    new_msg['y'] = fmutator(msg['y'], 'float64')
+    new_msg['z'] = fmutator(msg['z'], 'float64')
   return new_msg
 
 '''
@@ -252,11 +258,10 @@ geometry_msgs/msg/Twist
   Vector3  angular
 '''
 def twist_mutator(msg: dict):
-  log.debug("[twist mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['linear'] = vector3_mutator(msg['linear'])
-  new_msg['angular'] = vector3_mutator(msg['angular'])
-  log.debug("[twist mutator]: exit")
+  with mutator_context("twist mutator"):
+    new_msg = copy(msg)
+    new_msg['linear'] = vector3_mutator(msg['linear'])
+    new_msg['angular'] = vector3_mutator(msg['angular'])
   return new_msg
 
 '''
@@ -265,13 +270,12 @@ geometry_msgs/TwistWithCovariance
 	float64[36] covariance
 '''
 def twistwithcovariance_mutator(msg: dict):
-  log.debug("[twistwithcovariance mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['twist'] = twist_mutator(msg['twist'])
-  new_msg['covariance'] = lmutator(msg['covariance'], 
-                                   lambda x:fmutator(x, 'float64'), 
-                                   fixed_size=True)
-  log.debug("[twistwithcovariance mutator]: exit")
+  with mutator_context("twistwithcovariance mutator"):
+    new_msg = copy(msg)
+    new_msg['twist'] = twist_mutator(msg['twist'])
+    new_msg['covariance'] = lmutator(msg['covariance'],
+                                     lambda x:fmutator(x, 'float64'),
+                                     fixed_size=True)
   return new_msg
 
 '''
@@ -281,12 +285,11 @@ Point32
 	float32 z
 '''
 def point32_mutator(msg: dict):
-  log.debug("[point32 mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['x'] = fmutator(msg['x'], 'float32')
-  new_msg['y'] = fmutator(msg['y'], 'float32')
-  new_msg['z'] = fmutator(msg['z'], 'float32')
-  log.debug("[point32 mutator]: exit")
+  with mutator_context("point32 mutator"):
+    new_msg = copy(msg)
+    new_msg['x'] = fmutator(msg['x'], 'float32')
+    new_msg['y'] = fmutator(msg['y'], 'float32')
+    new_msg['z'] = fmutator(msg['z'], 'float32')
   return new_msg
 
 '''
@@ -296,13 +299,11 @@ Point64
 	float64 z
 '''
 def point64_mutator(msg: dict):
-  log.debug("[point64 mutator]: entry")
-  new_msg = copy(msg)
-  new_msg = copy(msg)
-  new_msg['x'] = fmutator(msg['x'], 'float64')
-  new_msg['y'] = fmutator(msg['y'], 'float64')
-  new_msg['z'] = fmutator(msg['z'], 'float64')
-  log.debug("[point64 mutator]: exit")
+  with mutator_context("point64 mutator"):
+    new_msg = copy(msg)
+    new_msg['x'] = fmutator(msg['x'], 'float64')
+    new_msg['y'] = fmutator(msg['y'], 'float64')
+    new_msg['z'] = fmutator(msg['z'], 'float64')
   return new_msg
 
 '''
@@ -310,10 +311,9 @@ geometry_msgs/msg/Polygon
   Point32[] points
 '''
 def polygon_mutator(msg: dict):
-  log.debug("[polygon mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['points'] = lmutator(msg['points'])
-  log.debug("[polygon mutator]: exit")
+  with mutator_context("polygon mutator"):
+    new_msg = copy(msg)
+    new_msg['points'] = lmutator(msg['points'], point32_mutator)
   return new_msg
 
 '''
@@ -325,13 +325,12 @@ Quaternion orientation
 '''
 def quaternion_mutator(msg: dict):
   #? 有默认值怎么解决?
-  log.debug("[quaternion mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['x'] = fmutator(msg['x'], 'float64')
-  new_msg['y'] = fmutator(msg['y'], 'float64')
-  new_msg['z'] = fmutator(msg['z'], 'float64')
-  new_msg['w'] = fmutator(msg['w'], 'float64')
-  log.debug("[quaternion mutator]: exit")
+  with mutator_context("quaternion mutator"):
+    new_msg = copy(msg)
+    new_msg['x'] = fmutator(msg['x'], 'float64')
+    new_msg['y'] = fmutator(msg['y'], 'float64')
+    new_msg['z'] = fmutator(msg['z'], 'float64')
+    new_msg['w'] = fmutator(msg['w'], 'float64')
   return new_msg
 
 '''
@@ -340,11 +339,10 @@ geometry_msgs/Pose origin
   Quaternion orientation
 '''
 def pose_mutator(msg: dict):
-  log.debug("[pose mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['position'] = point64_mutator(msg['position'])
-  new_msg['orientation'] = quaternion_mutator(msg['orientation'])
-  log.debug("[pose mutator]: exit")
+  with mutator_context("pose mutator"):
+    new_msg = copy(msg)
+    new_msg['position'] = point64_mutator(msg['position'])
+    new_msg['orientation'] = quaternion_mutator(msg['orientation'])
   return new_msg
 
 '''
@@ -353,11 +351,10 @@ geometry_msgs/PoseStamped
 	Pose pose
 '''
 def posestamped_mutator(msg: dict):
-  log.debug("[posestamped mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  new_msg['pose'] = pose_mutator(msg['pose'])
-  log.debug("[posestamped mutator]: exit")
+  with mutator_context("posestamped mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    new_msg['pose'] = pose_mutator(msg['pose'])
   return new_msg
 
 '''
@@ -366,14 +363,12 @@ geometry_msgs/PoseWithCovariance pose
 	float64[36] covariance
 '''
 def posewithcovariance_mutator(msg: dict):
-  log.debug("[posewithcovariance mutator]: entry")
-  new_msg = copy(msg)
-  new_msg = copy(msg)
-  new_msg['pose'] = pose_mutator(msg['pose'])
-  new_msg['covariance'] = lmutator(msg['covariance'], 
-                                   lambda x: fmutator(x, 'float64'),
-                                   fixed_size=True)
-  log.debug("[posewithcovariance mutator]: exit")
+  with mutator_context("posewithcovariance mutator"):
+    new_msg = copy(msg)
+    new_msg['pose'] = pose_mutator(msg['pose'])
+    new_msg['covariance'] = lmutator(msg['covariance'],
+                                     lambda x: fmutator(x, 'float64'),
+                                     fixed_size=True)
   return new_msg
 
 '''
@@ -385,14 +380,13 @@ MapMetaData info
 	geometry_msgs/Pose origin
 '''
 def mapmetadata_mutator(msg: dict):
-  log.debug("[mapmetadata mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['map_load_time'] = time_mutator(msg['map_load_time'])
-  new_msg['resolution'] = fmutator(msg['resolution'], 'float32')
-  new_msg['width'] = fmutator(msg['width'], 'uint32')
-  new_msg['height'] = fmutator(msg['height'], 'uint32')
-  new_msg['origin'] = point32_mutator(msg['origin'])
-  log.debug("[mapmetadata mutator]: exit")
+  with mutator_context("mapmetadata mutator"):
+    new_msg = copy(msg)
+    new_msg['map_load_time'] = time_mutator(msg['map_load_time'])
+    new_msg['resolution'] = fmutator(msg['resolution'], 'float32')
+    new_msg['width'] = fmutator(msg['width'], 'uint32')
+    new_msg['height'] = fmutator(msg['height'], 'uint32')
+    new_msg['origin'] = point32_mutator(msg['origin'])
   return new_msg
 
 '''
@@ -402,12 +396,11 @@ nav_msgs/msg/OccupancyGrid
   int8[] data
 '''
 def occupancygrid_mutator(msg: dict):
-  log.debug("[occupancygrid mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  new_msg['info'] = mapmetadata_mutator(msg['info'])
-  new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'int8'))
-  log.debug("[occupancygrid mutator]: exit")
+  with mutator_context("occupancygrid mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    new_msg['info'] = mapmetadata_mutator(msg['info'])
+    new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'int8'))
   return new_msg
 
 '''
@@ -421,16 +414,15 @@ CostmapMetaData metadata
 	geometry_msgs/Pose origin
 '''
 def costmapmetadata_mutator(msg: dict):
-  log.debug("[costmapmetadata mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['map_load_time'] = time_mutator(msg['map_load_time'])
-  new_msg['update_time'] = time_mutator(msg['update_time'])
-  # skip layer field
-  new_msg['resolution'] = fmutator(msg['resolution'], 'float32')
-  new_msg['size_x'] = fmutator(msg['size_x'], 'uint32')
-  new_msg['size_y'] = fmutator(msg['size_y'], 'uint32')
-  new_msg['origin'] = pose_mutator(msg['origin'])
-  log.debug("[costmapmetadata mutator]: exit")
+  with mutator_context("costmapmetadata mutator"):
+    new_msg = copy(msg)
+    new_msg['map_load_time'] = time_mutator(msg['map_load_time'])
+    new_msg['update_time'] = time_mutator(msg['update_time'])
+    # skip layer field
+    new_msg['resolution'] = fmutator(msg['resolution'], 'float32')
+    new_msg['size_x'] = fmutator(msg['size_x'], 'uint32')
+    new_msg['size_y'] = fmutator(msg['size_y'], 'uint32')
+    new_msg['origin'] = pose_mutator(msg['origin'])
   return new_msg
 
 '''
@@ -440,12 +432,11 @@ def costmapmetadata_mutator(msg: dict):
   uint8[] data
 '''
 def costmap_mutator(msg: dict):
-  log.debug("[costmap mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  new_msg['metadata'] = costmapmetadata_mutator(msg['metadata'])
-  new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'uint8'))
-  log.debug("[costmap mutator]: exit")
+  with mutator_context("costmap mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    new_msg['metadata'] = costmapmetadata_mutator(msg['metadata'])
+    new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'uint8'))
   return new_msg
 
 '''
@@ -458,15 +449,14 @@ map_msgs/msg/OccupancyGridUpdate
   int8[] data
 '''
 def occupancygridupdate_mutator(msg: dict):
-  log.debug("[occupancygridupdate mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  new_msg['x'] = fmutator(msg['x'], 'int32')
-  new_msg['y'] = fmutator(msg['y'], 'int32')
-  new_msg['width'] = fmutator(msg['width'], 'uint32')
-  new_msg['height'] = fmutator(msg['height'], 'uint32')
-  new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'int8'))
-  log.debug("[occupancygridupdate mutator]: exit")
+  with mutator_context("occupancygridupdate mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    new_msg['x'] = fmutator(msg['x'], 'int32')
+    new_msg['y'] = fmutator(msg['y'], 'int32')
+    new_msg['width'] = fmutator(msg['width'], 'uint32')
+    new_msg['height'] = fmutator(msg['height'], 'uint32')
+    new_msg['data'] = lmutator(msg['data'], lambda x: fmutator(x, 'int8'))
   return new_msg
 
 '''
@@ -475,11 +465,10 @@ nav_msgs/msg/Path
   geometry_msgs/PoseStamped[] poses
 '''
 def path_mutator(msg: dict):
-  log.debug("[path mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  new_msg['poses'] = lmutator(msg['poses'])
-  log.debug("[path mutator]: exit")
+  with mutator_context("path mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    new_msg['poses'] = lmutator(msg['poses'], posestamped_mutator)
   return new_msg
 
 '''
@@ -496,20 +485,19 @@ sensor_msgs/msg/LaserScan
   float32[] intensities        
 '''
 def laserscan_mutator(msg: dict):
-  log.debug("[laserscan mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  new_msg['angle_min'] = fmutator(msg['angle_min'], 'float32')
-  new_msg['angle_max'] = fmutator(msg['angle_max'], 'float32')
-  new_msg['angle_increment'] = fmutator(msg['angle_increment'], 'float32')
-  new_msg['time_increment'] = fmutator(msg['time_increment'], 'float32')
-  new_msg['scan_time'] = fmutator(msg['scan_time'], 'float32')
-  new_msg['range_min'] = fmutator(msg['range_min'], 'float32')
-  new_msg['range_max'] = fmutator(msg['range_max'], 'float32')
-  new_msg['ranges'] = lmutator(msg['ranges'], lambda x: fmutator(x, 'float32'))
-  new_msg['intensities'] = lmutator(msg['intensities'],
-                                    lambda x: fmutator(x, 'float32'),)
-  log.debug("[laserscan mutator]: exit")
+  with mutator_context("laserscan mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    new_msg['angle_min'] = fmutator(msg['angle_min'], 'float32')
+    new_msg['angle_max'] = fmutator(msg['angle_max'], 'float32')
+    new_msg['angle_increment'] = fmutator(msg['angle_increment'], 'float32')
+    new_msg['time_increment'] = fmutator(msg['time_increment'], 'float32')
+    new_msg['scan_time'] = fmutator(msg['scan_time'], 'float32')
+    new_msg['range_min'] = fmutator(msg['range_min'], 'float32')
+    new_msg['range_max'] = fmutator(msg['range_max'], 'float32')
+    new_msg['ranges'] = lmutator(msg['ranges'], lambda x: fmutator(x, 'float32'))
+    new_msg['intensities'] = lmutator(msg['intensities'],
+                                      lambda x: fmutator(x, 'float32'),)
   return new_msg
 
 '''
@@ -518,11 +506,10 @@ Transform transform
   Quaternion rotation
 '''
 def transform_mutator(msg: dict):
-  log.debug("[transform mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['translation'] = vector3_mutator(msg['translation'])
-  new_msg['rotation'] = quaternion_mutator(msg['rotation'])
-  log.debug("[transform mutator]: exit")
+  with mutator_context("transform mutator"):
+    new_msg = copy(msg)
+    new_msg['translation'] = vector3_mutator(msg['translation'])
+    new_msg['rotation'] = quaternion_mutator(msg['rotation'])
   return new_msg
 
 '''
@@ -532,12 +519,11 @@ geometry_msgs/TransformStamped
 	Transform transform
 '''
 def transformstamped_mutator(msg: dict):
-  log.debug("[transformstamped mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  # skip child_frame_id field
-  new_msg['transform'] = transform_mutator(msg['transform'])
-  log.debug("[transformstamped mutator]: exit")
+  with mutator_context("transformstamped mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    # skip child_frame_id field
+    new_msg['transform'] = transform_mutator(msg['transform'])
   return new_msg
 
 '''
@@ -548,11 +534,10 @@ nav_msgs/msg/Odometry
   geometry_msgs/TwistWithCovariance twist
 '''
 def odometry_mutator(msg: dict):
-  log.debug("[odometry mutator]: entry")
-  new_msg = copy(msg)
-  new_msg['header'] = header_mutator(msg['header'])
-  # skip child_frame_id field
-  new_msg['pose'] = posewithcovariance_mutator(msg['pose'])
-  new_msg['twist'] = twistwithcovariance_mutator(msg['twist'])
-  log.debug("[odometry mutator]: exit")
+  with mutator_context("odometry mutator"):
+    new_msg = copy(msg)
+    new_msg['header'] = header_mutator(msg['header'])
+    # skip child_frame_id field
+    new_msg['pose'] = posewithcovariance_mutator(msg['pose'])
+    new_msg['twist'] = twistwithcovariance_mutator(msg['twist'])
   return new_msg
