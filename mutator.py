@@ -1,4 +1,3 @@
-from myrozz.msg_parser import MsgNode
 from random import randint, choices, randrange, shuffle
 from copy import deepcopy, copy
 
@@ -132,7 +131,7 @@ def fmutator(data, type):
   fmt = TYPE_FMT.get(type, None)
   if fmt is None or type in ['string', 'bool']:
     raise ValueError("invalid datatype")
-  packedata: bytearray = struct.pack(fmt, data)
+  packedata = bytearray(struct.pack(fmt, data))
   if byte_mutator(packedata, [1, 1, 1, 9]):
     return struct.unpack(fmt, packedata)[0]
 
@@ -164,7 +163,7 @@ def header_mutator(msg: dict):
   return new_msg
 
 '''
-bond/msg/Sattus
+bond/msg/Status
   std_msgs/Header header
   string id 
   string instance_id 
@@ -172,7 +171,7 @@ bond/msg/Sattus
   float32 heartbeat_timeout
   float32 heartbeat_period
 '''
-def sattus_mutator(msg: dict):
+def status_mutator(msg: dict):
   new_msg = copy(msg) 
   new_msg['header'] = header_mutator(msg['header'])
   # skip id field
