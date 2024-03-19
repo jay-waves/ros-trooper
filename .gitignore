@@ -1,3 +1,10 @@
+# MyRozz
+log/
+!log/covr/
+!log/intr_bag/
+install/
+build/
+
 # Python
 # Byte-compiled / optimized / DLL files
 __pycache__/

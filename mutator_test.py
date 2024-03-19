@@ -6,14 +6,14 @@ import logging as log
 class TestMutators(unittest.TestCase):
   def test_time_mutator(self):
     time = {'sec': 123, 'nanosec': 456}
-    for _ in range(10):
+    for _ in range(30):
       new_time = mttr.time_mutator(time)
     self.assertIsNot(time, new_time, "Time should be mutated.")
     log.info("time: %s", new_time)
 
   def test_header_mutator(self):
     header = {'stamp': {'sec': 123, 'nanosec': 456}, 'frame_id': 'frame_123'}
-    for _ in range(10):
+    for _ in range(30):
       new_header = mttr.header_mutator(header)
     self.assertIsNot(new_header, header, "Header should be mutated.")
     self.assertIsNot(new_header['stamp'], header['stamp'], "Stamp should be mutated.")
@@ -28,7 +28,7 @@ class TestMutators(unittest.TestCase):
       'heartbeat_timeout': 1.23,
       'heartbeat_period': 4.56
     }
-    for _ in range(10):
+    for _ in range(30):
       new_status = mttr.status_mutator(status)
     self.assertIsNot(new_status, status, "Status should be mutated.")
     self.assertIsNot(new_status['header'], status['header'], "Header should be mutated.")
@@ -53,7 +53,7 @@ class TestMutators(unittest.TestCase):
       'ranges': [1.0] * 100, 
       'intensities': [100.0] * 100  
     }
-    for _ in range(10):
+    for _ in range(20):
       new_laserscan = mttr.laserscan_mutator(laserscan)
     self.assertIsNot(new_laserscan, laserscan, "Laserscan should be mutated.")
     self.assertIsNot(new_laserscan['header'], laserscan['header'], "Header should be mutated.")
@@ -95,6 +95,6 @@ class TestMutators(unittest.TestCase):
     log.info("new_odometry: %s", new_odometry)
 
 if __name__ == '__main__':
-  log.basicConfig(level=log.DEBUG) #! only setup once
+  log.basicConfig(level=log.INFO) #! only setup once
   unittest.main()
 
