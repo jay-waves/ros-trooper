@@ -4,6 +4,7 @@ export CXX=/usr/bin/clang++
 export MAKEFLAGS="-j4"
 
 source /opt/ros/humble/setup.bash
+cd $HOME/src/nav2_240315
 # source ...nav2_home
 
 # check dependencies

@@ -3,6 +3,8 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
+#TODO 确保 nav2 已经接收到位置信息
+
 class InitPosePublisher(Node):
     '''send initial pose to nav2_amcl'''
     # msg:

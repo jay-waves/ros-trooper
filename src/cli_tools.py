@@ -4,6 +4,7 @@ from multiprocessing import Process, Queue
 import time
 import signal
 import os
+import logging as log
 
 type_topics = grouped_topics = {
     'bond/msg/Status': ['/bond'],
@@ -70,7 +71,7 @@ topic_type = [('/bond', 'bond/msg/Status'),
 
 ROS_PREFIX = "source /opt/ros/humble/setup.bash && source /home/JayWaves/src/nav2_240315/install/setup.bash && "
 
-def run_ros_cmd(cmd: str, timeout=5):
+def run_ros_cmd(cmd: str, timeout=10):
   try: # 创建进程组来杀掉 shell 的各个子进程: shell->ros2cli->ros2-daemon
     result = subprocess.run(ROS_PREFIX + cmd, 
                             capture_output=True, text=True, 
@@ -79,11 +80,11 @@ def run_ros_cmd(cmd: str, timeout=5):
     if result.returncode == 0:
       return result.stdout.strip()
     else:
-      raise ValueError("Error running ROS command:", result.stderr)
-      print("hello")
+      log.warning("run ros commnd '%s' error: %s", cmd, result.stderr)
   except subprocess.TimeoutExpired:
     os.kill(os.getpid(), signal.SIGTERM)
-    raise TimeoutError("ROS command timed out after {} seconds".format(timeout))
+    log.warning("run ros commnd '%s' error: timeout", cmd)
+    # raise TimeoutError("ROS command timed out after {} seconds".format(timeout))
 
 # def get_active_topics():
 # 	return run_ros_cmd("ros2 topic list").splitlines()
@@ -97,11 +98,11 @@ def get_interface(type, q):
 
 def get_topic_msg(topic,q):
   # for --spin-time 0.5, see https://github.com/ros2/ros2cli/issues/248
-	echo= run_ros_cmd("ros2 topic echo --no-daemon --once --full-length --spin-time 0.5 "+topic)
-	q.put(f"\n{topic}, \n{echo}\n")
+  echo= run_ros_cmd("time ros2 topic echo --no-daemon --once --full-length --spin-time 5 "+topic)
+  q.put(f"\n{topic}, \n{echo}\n")
 
 def main():
-  batch_num = 3
+  batch_num = 5
   q = Queue()
   global topic_type
 	
@@ -120,8 +121,8 @@ def main():
       while not q.empty():
         print(q.get())
       topic_type1 = topic_type1[batch_num:]
+      time.sleep(10)
       print("next batch...")
-    time.sleep(5)
     print("next round...")
 	
 if __name__ == "__main__":
