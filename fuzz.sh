@@ -1,47 +1,40 @@
-#!/bin/bash
-export NUM_SEED=30
-export HEARTBEAT="/tmp/fuzz_heartbeat"
-export ERROR="/tmp/fuzz_error"
-# seed path: seeds
+#!/bin/bash 
+
+export TARGET="sleep 60"
+source "./env.sh"
 
 # variables
-if [[ ! -p $ERROR ]]; then
-  mkfifo $ERROR
-fi
 declare -A pids
 round=0
-touch $HEARTBEAT
 
-function cleanup {
+function on_exit {
   echo "[Fuzz] exit, please wait..."
-	timeout 5 redis-cli shutdown
-  kill -SIGINT ${pids[tcg]}
-  wait ${pids[tcg]}
-	rm $HEARTBEAT
-  rm $ERROR
+	rm $ERROR # avoid i/o blocking on error catch fifo
+  if kill -0 ${pids[err]} 2>/dev/null; then
+    kill -SIGINT ${pids[err]} 
+  fi # kill error fifo monitor
+  echo "[Fuzz] emit last heartbeat: -1"
+  quiet redis-cli publish heartbeat "-1"
+	redis-cli shutdown # avoid blocking of redis subscription
+  wait ${pids[tc_gen]} ${pids[mnt]} ${pids[disp]}
+  rm $TESTEE 
 	exit 0
 }
-trap cleanup SIGINT SIGTERM
+trap on_exit SIGINT SIGTERM
 
 ( # catch error fifo
+  trap 'exit 0' SIGINT # process signal
   while true; do
-    if read line < $ERROR; then
-      echo "[Fuzz][Error] $line"
-      kill -SIGINT $$
+    if read line < $ERROR; then # blocking here
+      echo "<error> $line"
+      kill -SIGINT $$ # kill fuzz.sh, call on_exit()
       break
     fi
   done
 ) &
+pids[err]=$!
 
-
-function guard {
-  local cmd="$1"
-  local -n pid_var=$2
-  $cmd &
-  pid_var=$!
-}
-
-function load_data {
+function load_data { # open redis-server, load seeds from ./seeds/*
   redis-server --port 6379 &
   while [ "$(redis-cli PING)" != "PONG" ]; do
     sleep 1
@@ -50,10 +43,7 @@ function load_data {
 
   for seed_file in seeds/*; do 
     seed=$(<"$seed_file") 
-    if [ -z $(redis-cli ZScore pool "$seed") ]; then
-      # 如不存在, 新建
-      redis-cli ZAdd pool 3 "$seed"
-    fi
+    quiet redis-cli ZAdd pool NX 2 "$seed"
   done
   echo "[Fuzz] successfully load seeds"
 }
@@ -61,12 +51,14 @@ function load_data {
 
 load_data
 
-guard "./testcase_generator.sh" pids[tcg] 
+guard "./dispatcher.sh" pids[disp]
+guard "./tc_gen.sh" pids[tc_gen] 
+guard "./monitor.sh" pids[mnt]
 sleep 1 # wait for subroutines
 
 while true; do
 	((round++))
   echo -e "\n[Fuzz] round: $round"
-	echo "$round" > $HEARTBEAT
+  quiet redis-cli publish heartbeat "$round"
   sleep 5
 done
