@@ -1,10 +1,16 @@
 #!/bin/bash
 <<EOF
-1. 监控被测进程, 收集信息
-2. 种子权重修改 (避免和 tc_gen 竞争)
-3. 
+testee: topic attacker
+ros2_program: target
 EOF
 
+declare -A pids
+alias redis='redis-cli --raw'
+
+function on_err {
+  echo "[Fuzz][Mnt] exit"
+  exit 1
+}
 
 function on_exit {
   echo "[Fuzz][Mnt] exit"
@@ -12,32 +18,45 @@ function on_exit {
 }
 trap on_exit SIGINT SIGTERM
 
-redis-cli subscribe heartbeat | while read type; do
+( #callback of heartbeat
+  redis subscribe heartbeat | while read type; do
   read key
   read round
   [ "$type" != "message" ] && continue
   [ "$round" -eq -1 ] && on_exit
-
-  # May blocking at read, wait dispatcher. It's dispatcher's responsibility
-  # to make sure it's reeady for monitor to collect information.
-  # To avoid deadlock, dispatcher will send "-1" to monitor when exiting
-  read pid < $TESTEE 
-  [ $pid -eq -1 ] && on_exit # exit
-  echo "[Fuzz][Mnt] watch on testee: $pid"
-
-  testcase=$(redis-cli --raw HGet "testcases:$pid" testcase)
-  score=$(redis-cli --raw HGet "testcases:$pid" score)
-  if [ -n "$testcase" ]; then
-    echo "[Fuzz][Mnt] get testcase: $testcase"
-    quiet redis-cli Del "testcases:$pid"
-  else
-    timeout 1 echo "[Fuzz][Mnt] testcase not found" > "$ERROR"
-    echo "[Fuzz][Mnt] exit"
-    exit 1
-  fi
-
-  # collect information, if anything interesting, 
-
-
   sleep 1
 done
+) & hrt_cb=$!
+
+( # callback of asan jnotifywait
+  trap 'exit 0' SIGINT
+  inotifywait -m "$MONITOR_DIR" -e create -e moved_to |
+  while read path action file; do
+    echo "[Fuzz][Mnt] New asan detected: $file"
+    
+    # get latest attck and testcase info
+    attck=$(redis LIndex attcks -1)
+    testcase=$(redis HGet "testcases:$attck" testcase)
+    score=$(redis HGet "testcases:$attck" score)
+    if [ -n "$testcase" ]; then
+      echo "[Fuzz][Mnt] interesting testcase: $testcase"
+      quiet redis-cli Del "testcases:$attck"
+    else
+      timeout 1 echo "[Fuzz][Mnt] testcase not found" > "$ERROR"
+      on_error
+    fi
+
+    # save bugs, update seedpool
+    sleep 1
+  done
+) & dsp_cb=$!
+
+( # callback of ros2 target death
+  redis subscribe target | while read type; do
+  read key; read pid
+  [ "$type" != "message" ] && continue
+  quiet redis-cli RPop attcks $THRESHOLD  
+  sleep 1
+done
+) & trgt_cb=$!
+

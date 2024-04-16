@@ -1,6 +1,7 @@
 #!/bin/bash 
 
-export TARGET="sleep 60"
+export ATTCK="sleep 60"
+export TARGET="./launch/nav2_fuzz.sh"
 source "./env.sh"
 
 # variables
@@ -17,7 +18,6 @@ function on_exit {
   quiet redis-cli publish heartbeat "-1"
 	redis-cli shutdown # avoid blocking of redis subscription
   wait ${pids[tc_gen]} ${pids[mnt]} ${pids[disp]}
-  rm $TESTEE 
 	exit 0
 }
 trap on_exit SIGINT SIGTERM

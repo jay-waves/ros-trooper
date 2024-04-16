@@ -4,7 +4,6 @@ declare -a childs
 
 function on_error {
   echo "[Fuzz][Disp] exit"
-  echo "-1" > $TESTEE # tell monitor to exit
   if [ ${#childs[@]} -gt 0 ]; then
     kill -SIGTERM ${childs[@]}
     wait ${childs[@]}
@@ -14,7 +13,6 @@ function on_error {
 
 function on_exit {
   echo "[Fuzz][Dsp] exit"
-  echo "-1" > $TESTEE # tell monitor to exit
   if [ ${#childs[@]} -gt 0 ]; then
     kill -SIGTERM ${childs[@]}
     wait ${childs[@]}
@@ -31,17 +29,18 @@ redis-cli subscribe heartbeat | while read type; do
 
   if [ ${#childs[@]} -gt 0 ]; then
     oldest=${childs[0]}
-    echo $oldest > $TESTEE # tell monitor
     kill $oldest
-    echo "[Fuzz][Dsp] killing oldest target: $oldest"
     wait $oldest
+    echo "[Fuzz][Dsp] oldest attacker killed: $oldest"
+    quiet redis-cli publish attacker "$oldest"
     childs=("${childs[@]:1}")
   fi
 
-  # dispatcher new process, !!may datarace at &
-  $TARGET & pid=$!
+  # dispatcher new process, !!may datarace, not care
+  $ATTCK & pid=$!
   childs+=($pid) 
-  echo "[Fuzz][Dsp] dispatch new target: $pid"
+  quiet redis-cli LPush attcks "$pid"
+  echo "[Fuzz][Dsp] dispatch new attacker: $pid"
 
   # pop one seed from seed pool
   seed="$(redis-cli --raw ZRevRange pool 0 0)"
@@ -50,7 +49,7 @@ redis-cli subscribe heartbeat | while read type; do
     on_error
   fi
   score=$(redis-cli --raw ZScore pool "$seed")
-  quiet redis-cli ZRem pool "$seed"
+  quiet redis-cli ZRem pool "$seed" # remove seed from pool to queue
   quiet redis-cli HMSet "testcases:$pid" testcase "$seed" score "$score"
 
   sleep 1

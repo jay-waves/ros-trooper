@@ -1,13 +1,14 @@
-export THRESHOLD=30
-export ERROR="/tmp/fuzz_error"   # fuzz error catch
-export TESTEE="/tmp/fuzz_testee" # contain testee pid
-[[ -p $ERROR ]] && rm -f $ERROR
-[[ -p $TESTEE ]] && rm -f $TESTEE
-mkfifo $ERROR $TESTEE
+export ASAN_LOG="log/sanitizer/asan"
+export ASAN_OPTIONS="\
+  halt_on_error=0:\
+  new_delete_type_mismatch=0:\
+  detect_leaks=0:\
+  log_path=$ASAN_LOG"
 
-# for redis
-# heartbeat channel
-# pool: sorted sets
+export ERROR="/tmp/fuzz_error"   # fuzz error catch
+[[ -p $ERROR ]] && rm -f $ERROR
+mkfifo $ERROR 
+
 
 function quiet { # make command silent
   "$@" > /dev/null 2>&1
@@ -15,10 +16,11 @@ function quiet { # make command silent
 }
 
 function guard { # guard subroutine in background
+  set -m
   local cmd="$1"
-  local -n pid_var=$2
-  $cmd &
-  pid_var=$!
+  local -n pid_var=$2 # indirect named call of $2
+  eval "$cmd" & pid_var=$!
+  set +m
 }
 
 function wait_heartbeat_depublicated {
@@ -38,5 +40,13 @@ function wait_heartbeat_depublicated {
       ;;
   esac
 }
+
+#( 
+  # monitor status of target. Because we only report bug when asan occurs,
+  # the unexpected exit of target willbe only recorded
+#  while kill -0 $pid 2>/dev/null; do
+#    sleep 1
+#  done
+#) &
 
 export -f quiet guard 

@@ -6,7 +6,7 @@ export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:/opt/ros/humble/share/turtlebot3_gaz
 #ros2 launch nav2_bringup tb3_simulation_launch.py headless:=False
 
 # export ROS_LOG_DIR="ros_log"
-export ASAN_OPTIONS=halt_on_error=0:new_delete_type_mismatch=0:detect_leaks=0:log_path=../log/asan
+export ASAN_OPTIONS=halt_on_error=0:new_delete_type_mismatch=0:detect_leaks=0
 
 
 
