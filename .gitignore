@@ -4,6 +4,7 @@ seeds/
 log/
 install/
 build/
+.mypy_cache/
 
 # Python
 # Byte-compiled / optimized / DLL files

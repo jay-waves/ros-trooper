@@ -1,44 +1,50 @@
 #!/bin/bash 
 
-declare -a childs
-
-function on_error {
-  echo "[Fuzz][ROSDisp] exit"
-  for pgid in "${childs[@]}"; do
-    kill -SIGTERM -- -"$pgid"
-    sleep 1
-    kill -SIGKILL -- -"$pgid"
+function on_exit {
+  echo "[Fuzz][ROSDsp] exit"
+  local childs=$(redis LRange "Trgts" 0 -1)
+  for pgid in "$childs"; do
+    if kill -0 $pgid 2>/dev/null; then
+      echo "[Fuzz][ROSDsp] interrupt target: $pgid"
+      kill -SIGINT -- -"$pgid"
+    fi
   done
-  exit 1
+  for pgid in "$childs"; do
+    if kill -0 $pgid 2>/dev/null; then
+      echo "[Fuzz][ROSDsp] may dangling, just kill: $pgid"
+      kill -SIGKILL -- -"$pgid"
+    fi
+  done
+  quiet redis-cli Del "Trgts"
+  exit 0
 }
 
-function on_exit {
+function on_err {
   echo "[Fuzz][ROSDsp] exit"
   for pgid in "${childs[@]}"; do
     kill -SIGKILL -- -"$pgid"
   done
-  exit 0
+  exit 1
 }
 trap on_exit SIGINT SIGTERM
 
-redis-cli subscribe heartbeat | while read type; do
+redis subscribe "HeartBeat" | while read type; do
   read key
   read round
   [ "$type" != "message" ] && continue
-  [ "$((round % $THRESHOLD))" -ne 1 ] && continue 
-  [ "$round" -eq -1 ] && on_exit
+  [ "$((round%THRESHOLD))" -ne 1 ] && continue 
 
-  if [ ${#childs[@]} -gt 0 ]; then
-    oldest=${childs[0]}
-    kill $oldest; wait $oldest
-    quiet redis-cli publish target "$oldest"
-    echo "[Fuzz][ROSDsp] killing oldest target: $oldest"
-    childs=("${childs[@]:1}")
+  oldest=$(redis RPop "Trgts")
+  if [ -n "$oldest" ]; then
+    kill -SIGINT -- -"$oldest"
+    wait "$oldest"
+    echo "[Fuzz][ROSDsp] oldest target killed: $oldest"
+    quiet redis-cli publish "TrgtKilled" "$oldest"
   fi
 
   # dispatcher new process, !!may datarace at &
-  guard "$TARGET" pid
-  childs+=($pid) 
+  jguard "$TARGET" pid
+  quiet redis-cli LPush "Trgts" "$pid"
   echo "[Fuzz][ROSDsp] dispatch new target: $pid"
 
   sleep 1

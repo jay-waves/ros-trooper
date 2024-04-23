@@ -1,0 +1,179 @@
+## 节点管理相关
+
+/bond # 管理生命周期
+Type: bond/msg/Status
+Publisher count: 18
+Subscription count: 18
+
+/clock
+Type: rosgraph_msgs/msg/Clock
+Publisher count: 1
+Subscription count: 22
+
+## 机器人行为
+
+/cmd_vel
+Type: geometry_msgs/msg/Twist
+Publisher count: 6
+Subscription count: 1
+
+/cmd_vel_nav
+Type: geometry_msgs/msg/Twist
+Publisher count: 1
+Subscription count: 1
+
+/joint_states
+Type: sensor_msgs/msg/JointState
+Publisher count: 1
+Subscription count: 1
+
+/speed_limit
+Type: nav2_msgs/msg/SpeedLimit
+Publisher count: 0
+Subscription count: 1
+
+## 内部信息
+
+### tf
+/tf
+Type: tf2_msgs/msg/TFMessage
+Publisher count: 3
+Subscription count: 7
+
+/tf_static
+Type: tf2_msgs/msg/TFMessage
+Publisher count: 1
+Subscription count: 7
+### costmap
+/downsampled_costmap
+Type: nav_msgs/msg/OccupancyGrid
+Publisher count: 0
+Subscription count: 1
+
+/downsampled_costmap_updates
+Type: map_msgs/msg/OccupancyGridUpdate
+Publisher count: 0
+Subscription count: 1
+
+/global_costmap/costmap
+Type: nav_msgs/msg/OccupancyGrid
+Publisher count: 1
+Subscription count: 1
+
+/global_costmap/costmap_raw
+Type: nav2_msgs/msg/Costmap
+Publisher count: 1
+Subscription count: 1
+
+/global_costmap/costmap_updates
+Type: map_msgs/msg/OccupancyGridUpdate
+Publisher count: 1
+Subscription count: 1
+
+/global_costmap/published_footprint
+Type: geometry_msgs/msg/PolygonStamped
+Publisher count: 1
+Subscription count: 1
+
+/global_costmap/voxel_marked_cloud
+Type: sensor_msgs/msg/PointCloud2
+Publisher count: 0
+Subscription count: 1
+
+/global_costmap/footprint
+Type: geometry_msgs/msg/Polygon
+Publisher count: 0
+Subscription count: 1
+
+/local_costmap/costmap
+Type: nav_msgs/msg/OccupancyGrid
+Publisher count: 1
+Subscription count: 1
+
+/local_costmap/costmap_raw
+Type: nav2_msgs/msg/Costmap
+Publisher count: 1
+Subscription count: 1
+
+/local_costmap/costmap_updates
+Type: map_msgs/msg/OccupancyGridUpdate
+Publisher count: 1
+Subscription count: 1
+
+/local_costmap/footprint
+Type: geometry_msgs/msg/Polygon
+Publisher count: 0
+Subscription count: 1
+
+/local_costmap/published_footprint
+Type: geometry_msgs/msg/PolygonStamped
+Publisher count: 1
+Subscription count: 2
+
+### bumper
+/mobile_base/sensors/bumper_pointcloud
+Type: sensor_msgs/msg/PointCloud2
+Publisher count: 0
+Subscription count: 1
+
+## 导航行为
+
+/plan
+Type: nav_msgs/msg/Path
+Publisher count: 1
+Subscription count: 1
+
+/waypoints
+Type: visualization_msgs/msg/MarkerArray
+Publisher count: 1
+Subscription count: 1
+
+/local_plan
+Type: nav_msgs/msg/Path
+Publisher count: 1
+Subscription count: 1
+
+/particle_cloud
+Type: nav2_msgs/msg/ParticleCloud
+Publisher count: 1
+Subscription count: 1
+
+## 用户输入
+
+/initialpose
+Type: geometry_msgs/msg/PoseWithCovarianceStamped
+Publisher count: 1
+Subscription count: 1
+
+/goal_pose
+Type: geometry_msgs/msg/PoseStamped
+Publisher count: 0
+Subscription count: 1
+
+/parameter_events # 形式灵活, 价值不大
+Type: rcl_interfaces/msg/ParameterEvent
+Publisher count: 25
+Subscription count: 31
+
+## 外部物理(模拟)信息
+
+/odom
+Type: nav_msgs/msg/Odometry
+Publisher count: 1
+Subscription count: 2
+
+/scan
+Type: sensor_msgs/msg/LaserScan
+Publisher count: 1
+Subscription count: 4
+
+/map
+Type: nav_msgs/msg/OccupancyGrid
+Publisher count: 1
+Subscription count: 3
+
+/map_updates
+Type: map_msgs/msg/OccupancyGridUpdate
+Publisher count: 0
+Subscription count: 1
+

@@ -1,39 +1,40 @@
-#!/bin/bash
-<<EOF
-testee: topic attacker
-ros2_program: target
-EOF
-
+#!/bin/bash 
 declare -A pids
-alias redis='redis-cli --raw'
-
-function on_err {
-  echo "[Fuzz][Mnt] exit"
-  exit 1
-}
 
 function on_exit {
   echo "[Fuzz][Mnt] exit"
+  for pgid in "${pids[@]}"; do
+    if kill -0 $pgid 2>/dev/null; then
+      echo "[Fuzz][Mnt] interrupt daemon: $pgid"
+      kill -SIGINT -- -"$pgid"
+    fi
+  done
+  for pgid in "${pids[@]}"; do
+    if kill -0 $pgid 2>/dev/null; then
+      echo "[Fuzz][Mnt] dangling, just kill: $pgid"
+      kill -SIGKILL -- -"$pgid"
+    fi
+  done
   exit 0
 }
 trap on_exit SIGINT SIGTERM
 
-( #callback of heartbeat
-  redis subscribe heartbeat | while read type; do
+set -m
+( # callback of heartbeat
+  redis subscribe "HeartBeat" | while read type; do
   read key
   read round
   [ "$type" != "message" ] && continue
-  [ "$round" -eq -1 ] && on_exit
   sleep 1
 done
-) & hrt_cb=$!
+) & pids[hrt]=$!
 
 ( # callback of asan jnotifywait
-  trap 'exit 0' SIGINT
-  inotifywait -m "$MONITOR_DIR" -e create -e moved_to |
+  inotifywait -m "$ASAN_LOGDIR" -e create -e moved_to |
   while read path action file; do
     echo "[Fuzz][Mnt] New asan detected: $file"
     
+<<EOF
     # get latest attck and testcase info
     attck=$(redis LIndex attcks -1)
     testcase=$(redis HGet "testcases:$attck" testcase)
@@ -45,18 +46,21 @@ done
       timeout 1 echo "[Fuzz][Mnt] testcase not found" > "$ERROR"
       on_error
     fi
-
+EOF
     # save bugs, update seedpool
     sleep 1
   done
-) & dsp_cb=$!
+) & pids[attk]=$!
 
 ( # callback of ros2 target death
-  redis subscribe target | while read type; do
+  redis subscribe "TrgtKilled" | while read type; do
   read key; read pid
   [ "$type" != "message" ] && continue
-  quiet redis-cli RPop attcks $THRESHOLD  
+  quiet redis-cli RPop Attcks $THRESHOLD  
+  echo "[Fuzz][Mnt] connect attackers to target"
   sleep 1
 done
-) & trgt_cb=$!
+) & pids[trgt]=$!
+set +m
 
+wait

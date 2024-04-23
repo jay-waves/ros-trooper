@@ -1,9 +1,10 @@
-export ASAN_LOG="log/sanitizer/asan"
+export THRESHOLD=5
+export ASAN_LOGDIR="log/sanitizer"
 export ASAN_OPTIONS="\
   halt_on_error=0:\
   new_delete_type_mismatch=0:\
   detect_leaks=0:\
-  log_path=$ASAN_LOG"
+  log_path=$ASAN_LOG/asan"
 
 export ERROR="/tmp/fuzz_error"   # fuzz error catch
 [[ -p $ERROR ]] && rm -f $ERROR
@@ -16,6 +17,13 @@ function quiet { # make command silent
 }
 
 function guard { # guard subroutine in background
+  local cmd="$1"
+  local -n pid_var=$2 # indirect named call of $2
+  eval "$cmd" & pid_var=$!
+}
+
+function jguard {
+  # guard with job control
   set -m
   local cmd="$1"
   local -n pid_var=$2 # indirect named call of $2
@@ -41,12 +49,12 @@ function wait_heartbeat_depublicated {
   esac
 }
 
-#( 
-  # monitor status of target. Because we only report bug when asan occurs,
-  # the unexpected exit of target willbe only recorded
-#  while kill -0 $pid 2>/dev/null; do
-#    sleep 1
-#  done
-#) &
+function redis {
+  redis-cli --raw "$@"
+}
 
-export -f quiet guard 
+function log_err {
+  echo -e "\033[31m$@\033[0m"
+}
+
+export -f quiet guard jguard redis log_error

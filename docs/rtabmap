@@ -1,0 +1,50 @@
+rtabmap_msgs/msg/CameraModel
+rtabmap_msgs/msg/CameraModels
+rtabmap_msgs/msg/EnvSensor
+rtabmap_msgs/msg/GPS
+rtabmap_msgs/msg/GlobalDescriptor
+rtabmap_msgs/msg/Goal
+rtabmap_msgs/msg/Info
+rtabmap_msgs/msg/KeyPoint
+rtabmap_msgs/msg/LandmarkDetection
+rtabmap_msgs/msg/LandmarkDetections
+rtabmap_msgs/msg/Link
+rtabmap_msgs/msg/MapData
+rtabmap_msgs/msg/MapGraph
+rtabmap_msgs/msg/Node
+rtabmap_msgs/msg/OdomInfo
+rtabmap_msgs/msg/Path
+rtabmap_msgs/msg/Point2f
+rtabmap_msgs/msg/Point3f
+rtabmap_msgs/msg/RGBDImage
+rtabmap_msgs/msg/RGBDImages
+rtabmap_msgs/msg/ScanDescriptor
+rtabmap_msgs/msg/SensorData
+rtabmap_msgs/msg/UserData
+
+
+
+rtabmap_msgs/msg/Node: 关注 keys[] 和 values[] 长度不一致, label为空, 
+#class rtabmap::Signature
+
+int32 id
+int32 map_id
+int32 weight
+float64 stamp
+string label
+
+# Pose from odometry not corrected
+geometry_msgs/Pose pose
+
+# std::multimap<wordId, index>
+# std::vector<cv::Keypoint>
+# std::vector<cv::Point3f>
+int32[] word_id_keys
+int32[] word_id_values
+KeyPoint[] word_kpts
+Point3f[] word_pts
+# compressed descriptors
+# use rtabmap::util3d::uncompressData() from "rtabmap/core/util3d.h"
+uint8[] word_descriptors
+
+SensorData data
